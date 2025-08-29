@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import time
 
 root = tk.Tk()
 root.title("Procesamiento por lotes")
@@ -8,13 +9,14 @@ root.geometry("854x480")
 
 Lotes = []
 Procesos = []
+Contador = 0
 
 def guardar_datos():
     NewProceso = Proc()
     NewProceso.captura_datos()
     
     if len(Procesos) >= 4:
-        Lotes.append(Procesos)
+        Lotes.append(list(Procesos))
         Procesos.clear()
         
     Procesos.append(NewProceso)
@@ -96,21 +98,47 @@ class Proc:
         
     
 def procesar():
+    if len(Procesos) > 0:
+        Lotes.append(list(Procesos))
+        Procesos.clear()
+    
+    print("Comenzando Proceso!...")
     for l in range(len(Lotes)):
         for p in range(len(Lotes[l])):
             proc = Lotes[l][p]
             
-            
-            tree_trajando.insert("", "end", values=(proc.nombre, proc.TimeMax))
+            proc_id = tree_trajando.insert("", "end", values=(proc.nombre, proc.TimeMax))
             lbl_nombre.config(text=f"Nombre: {proc.nombre}")
             lbl_id.config(text=f"ID: {proc.id}")
             lbl_ope.config(text=f"Operacion: {proc.ope}")
             lbl_tme.config(text=f"TME: {proc.TimeMax}")
             
-            #poner esta mamada de los segundos
-            #lbl_contador.config(text=f"Contador: {segundos}")
             
+            
+            mtime = proc.TimeMax
+            
+            ejecucion_proces(mtime, mtime, proc, proc_id)
 
+    print("Proceso ternminado")
+            
+            
+            
+def ejecucion_proces(ti, mt, proc, pid):
+    i = ti
+    global Contador
+    Contador += 1
+    lbl_contador.config(text=f"Contador: {Contador}")
+    lbl_tt.config(text=f"TT: {i}")
+    lbl_tr.config(text=f"TR: {mt-i}")
+    print(f"Contando... {i}")
+    if(ti>0):
+        root.after(1000, lambda: ejecucion_proces(ti-1,mt,proc, pid))
+    elif ti == 0:
+        result = eval(proc.ope)
+        tree_trajando.delete(pid)
+        tree_terminados.insert("", "end", values=(proc.id, proc.ope, result))
+         
+        
 
 #GUI
 
@@ -147,7 +175,6 @@ label_datos_save.pack(pady=5)
 
 btn_guardar_datos = tk.Button(frame_left, text="Guardar proceso", command=guardar_datos)
 btn_guardar_datos.pack(pady=10)
-
 
 
 Guardados = tk.Text(frame_left, width=40, height=100, wrap=tk.WORD)
