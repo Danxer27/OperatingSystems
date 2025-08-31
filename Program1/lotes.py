@@ -11,6 +11,7 @@ Lotes = []
 Procesos = []
 Contador = 0
 ids = []
+num_lotes = 1
 
 def guardar_datos():
     NewProceso = Proc()
@@ -19,7 +20,7 @@ def guardar_datos():
     if len(Procesos) >= 4:
         Lotes.append(list(Procesos))
         Procesos.clear()
-        
+        num_lotes += 1
     Procesos.append(NewProceso)
     
 
@@ -29,6 +30,8 @@ class Proc:
     ope = ""
     TimeMax = 0
     datos_string = ""
+    proces_id = ""
+    num_lote = 0
     
     def __init__(self):
         pass
@@ -39,6 +42,7 @@ class Proc:
             self.id = self.captura_id()
             self.ope = self.captura_operacion()
             self.TimeMax = self.captura_temp_max()
+            self.num_lote = num_lotes
             entrada_id.delete(0, tk.END)
             entrada_nombre.delete(0, tk.END)
             entrada_operacion.delete(0, tk.END)
@@ -46,18 +50,17 @@ class Proc:
             self.print_proc()
             self.string_proc()
             label_datos_save.config(text="Datos Guardados Correctamente!", bg="LawnGreen")
-        except ValueError:
-            #label_datos_save.config(text="Error al guardar datos.", background="red")
-            pass
+        except ValueError as e:
+            label_datos_save.config(text=str(e), background="red")
+        except Exception as e:
+            label_datos_save.config(text=str(e), background="red")
             
         
             
     def capturar_nombre(self):
         temp_nombre = entrada_nombre.get()
         if not temp_nombre:
-            print("Nombre no valido")
-            label_datos_save.config(text="Nombre no valido", background="red") #avisto en gui
-            return self.capturar_nombre()
+            raise ValueError("Nombre no valido")
         else: 
             return temp_nombre
         
@@ -66,42 +69,45 @@ class Proc:
         try: 
             temp_id = int(temp_id)
         except ValueError:
-            print("ID no valido")
-            label_datos_save.config(text="ID no valido", background="red") # aviso en gui
-        
+            raise ValueError("ID no valido")
+
         for i in ids:
             if temp_id == i:
-                label_datos_save.config(text="ID ya en uso", background="red") # aviso en gui
-        
+                raise ValueError("ID ya en uso")
+                
         if temp_id < 1:
-            label_datos_save.config(text="ID no valido", background="red") # aviso en gui
-
+            raise ValueError("ID no positivo")
         
+        if temp_id == None:
+            raise ValueError("ID no ingresado")
+        
+        ids.append(temp_id)
         return temp_id
     
     def captura_operacion(self):
         temp_op = entrada_operacion.get()
+        if not temp_op:
+            raise ValueError("Opercion invalida")
         try:
             eval(temp_op)
-           
-        except ValueError:
-            print("Operacion no valida")
-            label_datos_save.config(text="Formato de operacion no valido", background="red")
-            temp_op = self.captura_operacion()
-        return temp_op
+            return temp_op
+        except Exception:
+            raise ValueError("Opercion invalida")
+        
+
             
     def captura_temp_max(self):
         temp_time = entrada_tiempomax.get()
         try: 
             temp_time = int(temp_time)
-        except ValueError:
-            print("Teimpo no valido")
-            label_datos_save.config(text="Tiempo no valido", background="red")
-            temp_time = self.captura_temp_max()
+        except Exception:
+            raise ValueError("Tiempo no valido")
         
         if temp_time < 0:
-            label_datos_save.config(text="Tiempo no valido", background="red")
-            temp_time = self.captura_temp_max()
+            raise ValueError("Tiempo no valido, negativo.")
+        
+        if temp_time == None:
+            raise ValueError("Tiempo sin ingresar.")
             
         return temp_time   
     
@@ -119,42 +125,57 @@ def procesar():
         Procesos.clear()
     
     print("Comenzando Proceso!...")
-
-    for l in range(len(Lotes)):
-        for p in range(len(Lotes[l])):
+    rlotes = 0
+    nlotes = 1
+    for l in range(len(Lotes)): #itera en los lotes
+        
+        frame_trabajando.config(text=f"Lote Trabjando: {nlotes}")
+        lbl_lotes_restantes.config(text=f"Lotes Restantes: {num_lotes-rlotes}")
+        
+        for p in range(len(Lotes[l])): #inserta los proceso en el frame de lote trabajando
             proc = Lotes[l][p]
-            
             proc_id = tree_trajando.insert("", "end", values=(proc.nombre, proc.TimeMax))
-            lbl_nombre.config(text=f"Nombre: {proc.nombre}")
-            lbl_id.config(text=f"ID: {proc.id}")
-            lbl_ope.config(text=f"Operacion: {proc.ope}")
-            lbl_tme.config(text=f"TME: {proc.TimeMax}")
+            proc.proces_id = proc_id
             
+        for p in range(len(Lotes[l])): #procesa cada proceso
+            proc = Lotes[l][p]
             mtime = proc.TimeMax
+            ejecucion_proces(mtime, mtime, proc, proc.proces_id)
             
-            # Llamada secuencial a ejecucion_proces
-            ejecucion_proces(mtime, mtime, proc, proc_id)
+        
+        rlotes += 1
+        nlotes += 1
 
     print("Proceso terminado")
-
+    proceso_terminado()
 
 def ejecucion_proces(ti, mt, proc, pid):
     global Contador
 
     for i in range(ti, 0, -1):
         Contador += 1
+        
+        lbl_nombre.config(text=f"Nombre: {proc.nombre}")
+        lbl_id.config(text=f"ID: {proc.id}")
+        lbl_ope.config(text=f"Operacion: {proc.ope}")
+        lbl_tme.config(text=f"TME: {proc.TimeMax}")
         lbl_contador.config(text=f"Contador: {Contador}")
         lbl_tt.config(text=f"TT: {i}")
         lbl_tr.config(text=f"TR: {mt - i}")
         print(f"Contando... {i}")
-        root.update()  # Actualiza la interfaz gráfica para reflejar los cambios
-        time.sleep(1)  # Pausa de 1 segundo para simular el tiempo de ejecución
+        root.update()
+        time.sleep(1)
 
-    # Cuando el tiempo llega a 0
     result = eval(proc.ope)
     tree_trajando.delete(pid)
-    tree_terminados.insert("", "end", values=(proc.id, proc.ope, result))
-         
+    tree_terminados.insert("", "end", values=(proc.id, proc.ope, result, proc.num_lote))
+    
+def proceso_terminado(): #limpia la tabla de procesos en ejecucion
+    lbl_nombre.config(text="Nombre:")
+    lbl_id.config(text="ID: ")
+    lbl_ope.config(text="Operacion: ")
+    lbl_tme.config(text="TME: 0")
+    lbl_tr.config(text="TR: 0")
         
 
 #GUI
@@ -201,6 +222,9 @@ Guardados.pack(padx=15)
 btn_comenzar_proceso = tk.Button(root, text="Comenzar Proceso", command=procesar, background="DarkSeaGreen")
 btn_comenzar_proceso.pack(pady=10)
 
+lbl_lotes_restantes = tk.Label(root, text=f"Lotes pendientes: ")
+lbl_lotes_restantes.pack(pady=3, padx=50)
+
 #Frames de procesos
 frame_tablas = tk.Frame(root)
 frame_tablas.pack(fill="both", expand=True, padx=10, pady=10)
@@ -208,8 +232,6 @@ frame_tablas.pack(fill="both", expand=True, padx=10, pady=10)
 
 frame_trabajando = tk.LabelFrame(frame_tablas, text="Lote Trabajando")
 frame_trabajando.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-
-    #lbl_lote_trabajando = tk.Label(frame_trabajando, text=f"Lotes pendientes: ")
 
 tree_trajando = ttk.Treeview(frame_trabajando, columns=("nombre", "tme"), show="headings")
 tree_trajando.heading("nombre", text="Nombre")
