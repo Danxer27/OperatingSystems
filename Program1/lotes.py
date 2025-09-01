@@ -16,6 +16,7 @@ num_lotes = 1
 def guardar_datos():
     NewProceso = Proc()
     NewProceso.captura_datos()
+    global num_lotes
     
     if len(Procesos) >= 4:
         Lotes.append(list(Procesos))
@@ -130,7 +131,7 @@ def procesar():
     for l in range(len(Lotes)): #itera en los lotes
         
         frame_trabajando.config(text=f"Lote Trabjando: {nlotes}")
-        lbl_lotes_restantes.config(text=f"Lotes Restantes: {num_lotes-rlotes}")
+        lbl_lotes_restantes.config(text=f"Lotes Restantes: {num_lotes-rlotes-1}")
         
         for p in range(len(Lotes[l])): #inserta los proceso en el frame de lote trabajando
             proc = Lotes[l][p]
@@ -152,7 +153,7 @@ def procesar():
 def ejecucion_proces(ti, mt, proc, pid):
     global Contador
 
-    for i in range(ti, 0, -1):
+    for i in range(ti, 0, -1): #asigna el proceso actual a la tabla de procesos
         Contador += 1
         
         lbl_nombre.config(text=f"Nombre: {proc.nombre}")
@@ -214,10 +215,8 @@ label_datos_save.pack(pady=5)
 btn_guardar_datos = tk.Button(frame_left, text="Guardar proceso", command=guardar_datos)
 btn_guardar_datos.pack(pady=10)
 
-
 Guardados = tk.Text(frame_left, width=40, height=100, wrap=tk.WORD)
 Guardados.pack(padx=15)
-
 
 btn_comenzar_proceso = tk.Button(root, text="Comenzar Proceso", command=procesar, background="DarkSeaGreen")
 btn_comenzar_proceso.pack(pady=10)
@@ -238,7 +237,7 @@ tree_trajando.heading("nombre", text="Nombre")
 tree_trajando.heading("tme", text="TME")
 tree_trajando.pack(fill="both", expand=True)
 
-#proceso en ejecucion
+#frame de proceso en ejecucion
 frame_proceso = tk.LabelFrame(frame_tablas, text="Proceso en ejecucion")
 frame_proceso.pack(side="left", fill="y", padx=10, pady=10)
 
@@ -255,7 +254,7 @@ lbl_tt.pack(anchor="w")
 lbl_tr = tk.Label(frame_proceso, text="TR: -")
 lbl_tr.pack(anchor="w")
 
-#terminados
+#frame de gui de terminados
 frame_terminados = tk.LabelFrame(frame_tablas, text="Terminados")
 frame_terminados.pack(side="left", fill="both", expand=True, padx=10, pady=5)
 
