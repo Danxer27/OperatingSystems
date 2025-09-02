@@ -51,6 +51,7 @@ class Proc:
             self.print_proc()
             self.string_proc()
             label_datos_save.config(text="Datos Guardados Correctamente!", bg="LawnGreen")
+            ids.append(ids)
         except ValueError as e:
             label_datos_save.config(text=str(e), background="red")
         except Exception as e:
@@ -72,7 +73,7 @@ class Proc:
         except ValueError:
             raise ValueError("ID no valido")
 
-        for i in ids:
+        for i in range(len(ids)):
             if temp_id == i:
                 raise ValueError("ID ya en uso")
                 
@@ -82,7 +83,6 @@ class Proc:
         if temp_id == None:
             raise ValueError("ID no ingresado")
         
-        ids.append(temp_id)
         return temp_id
     
     def captura_operacion(self):
@@ -104,7 +104,7 @@ class Proc:
         except Exception:
             raise ValueError("Tiempo no valido")
         
-        if temp_time < 0:
+        if temp_time < 1:
             raise ValueError("Tiempo no valido, negativo.")
         
         if temp_time == None:
