@@ -17,9 +17,10 @@ ids = []
 num_lotes = 1
 Num_Procesos = 0
 MAX_TME_TIME = 10
-    
+ 
 # GENERA DATOS PRIMERO LLAMANDO A CAPTURAR EL NUMERO DE PROCESO
 def generar_datos():
+        
         try: 
             Num_Procesos = capturar_Num_Procesos()
             label_datos_save.config(text="Datos Generados Correctamente!", bg="LawnGreen")
@@ -31,12 +32,15 @@ def generar_datos():
         for i in range(Num_Procesos):
             NewProceso = Proc()
             global num_lotes
+            Procesos.append(NewProceso)
 
-            if len(Procesos) >= 4:
+            if len(Procesos) == 4:
+                for pi in Procesos:
+                    pi.num_lote = num_lotes
                 Lotes.append(list(Procesos))
                 Procesos.clear()
                 num_lotes += 1
-            Procesos.append(NewProceso)
+            
     
 def capturar_Num_Procesos():
     temp_num = entrada_procesos.get()
@@ -70,7 +74,6 @@ class Proc:
         self.id = self.generar_id()
         self.ope = self.generar_operacion()
         self.TimeMax = rm.randint(6,MAX_TME_TIME)
-        self.num_lote = num_lotes
         self.string_proc()
         self.print_proc()
 
@@ -108,14 +111,18 @@ class Proc:
         self.string_proc = f"-ID:{self.id} -Operacion:{self.ope} -TME: {self.TimeMax}\n"
         Guardados.insert('1.0', str(self.string_proc))
         
-Procesos_QUEUE = []    
+
 
 def procesar():
+    global num_lotes
     if len(Procesos) > 0:
         for ip in Procesos:
             ip.num_lote = num_lotes
         Lotes.append(list(Procesos))
         Procesos.clear()
+        num_lotes += 1
+    
+    Procesos_QUEUE = []    
     
     print("Comenzando Proceso!...")
     rlotes = 0
@@ -134,7 +141,7 @@ def procesar():
         while len(Procesos_QUEUE) > 0: #procesa cada proceso
             proc = Procesos_QUEUE.pop(0)
             tree_trajando.delete(proc.proces_id)
-            ejecucion_proces(proc)
+            ejecucion_proces(proc, Procesos_QUEUE)
             
         
         rlotes += 1
@@ -143,7 +150,7 @@ def procesar():
     print("Proceso terminado")
     proceso_terminado()
 
-def ejecucion_proces(proc):
+def ejecucion_proces(proc, P_QUEUE):
     global Contador
     time_ejec = proc.TimeMax - proc.tt
     werror = False
@@ -173,11 +180,12 @@ def ejecucion_proces(proc):
                 time_ejec = 1
                 
             if tecla == 'e':
-                Procesos_QUEUE.append(proc)
+                P_QUEUE.append(proc)
                 proc_id = tree_trajando.insert("", "end", values=(proc.id, proc.TimeMax, proc.tt))
                 proc.proces_id = proc_id
                 return
-                
+        
+        # FIN DE FUNCIONES DE TECLAS
         
         
         lbl_id.config(text=f"ID: {proc.id}")
@@ -207,7 +215,8 @@ def ejecucion_proces(proc):
 def proceso_terminado(): #limpia la tabla de procesos en ejecucion
     lbl_id.config(text="ID: ")
     lbl_ope.config(text="Operacion: ")
-    lbl_tme.config(text="TME: 0")
+    lbl_tme.config(text="TME: ")
+    lbl_tt.config(text="TT: ")
     lbl_tr.config(text="TR: 0")
         
 
