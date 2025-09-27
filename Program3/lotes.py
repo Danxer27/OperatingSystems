@@ -56,8 +56,7 @@ class Proc:
     ope = ""
     TimeMax = 0
     datos_string = ""
-    proces_id = ""
-    num_lote = 0
+    p_id = ""
     tt = 0
     ttb = 0
     
@@ -113,18 +112,20 @@ def procesar():
     for i in range(4):  #Inserta los primeros 4 procesos en la cola
         proc = Procesos.pop()
         proc_id = tree_trajando.insert("", "end", values=(proc.id, proc.TimeMax, proc.tt))
-        proc.proces_id = proc_id
+        proc.p_id = proc_id
         Procesos_QUEUE.append(proc)
     
     while len(Procesos_QUEUE) > 0: #procesa cada proceso
             proc = Procesos_QUEUE.pop(0)
-            tree_trajando.delete(proc.proces_id)
+            tree_trajando.delete(proc.p_id)
             ejecucion_proces(proc, Procesos_QUEUE)
         
-    print("Proceso terminado")
+    print("Procesos terminado")
     proceso_terminado()
 
+
 def ejecucion_proces(proc, P_QUEUE):
+    bloqueados = []
     global Contador
     time_ejec = proc.TimeMax - proc.tt
     w_error = False
@@ -151,16 +152,21 @@ def ejecucion_proces(proc, P_QUEUE):
                             
             if tecla == 'w':
                 w_error = True
-                time_ejec = 1
+                time_ejec = 0 #establece el tiempo restante en 0 cuando se da error para que pase directo a terminados, estaba en 1
                 
             if tecla == 'e':
-                P_QUEUE.append(proc)
-                proc_id = tree_trajando.insert("", "end", values=(proc.id, proc.TimeMax, proc.tt))
-                proc.proces_id = proc_id
-                return
+                bloqueados.append(proc)
+                tree_trajando.delete(proc.p_id)
+                proc_bloc_id = tree_bloqueados.insert("", "end", values=(proc.id, proc.ttb))
+                proc.p_id = proc_bloc_id
+                
+                # P_QUEUE.append(proc)
+                # proc_id = tree_trajando.insert("", "end", values=(proc.id, proc.TimeMax, proc.tt))
+                # proc.p_id = proc_id
+                #return
         
         # FIN DE FUNCIONES DE TECLAS
-        
+        # Tabla de ejecucion ---
         
         lbl_id.config(text=f"ID: {proc.id}")
         if w_error:
@@ -173,18 +179,39 @@ def ejecucion_proces(proc, P_QUEUE):
         lbl_tr.config(text=f"TR: {time_ejec - i}")
         print(f"Contando... {i}")
         
-        
+        #Bloqueados
+        for b_proc in bloqueados:
+            b_proc.ttb += 1
+            
+            if b_proc.ttb >= 8:
+                tree_bloqueados.delete(b_proc.p_id)
+                P_QUEUE.append(b_proc)
+                
+                
         #cambiando tiempo transcurrido interno
         proc.tt += 1
         i += 1
         root.update()
         time.sleep(1)
+        
+    # ^^^^^^^ TERMINA DEL PROCESO ^^^^^^^
+    
 
+    # añade nuevo proceso a la memoria
+    if(len(P_QUEUE) + len(bloqueados) <= 4):
+        if(len(Procesos) > 0):
+            proc = Procesos.pop()
+            proc_id = tree_trajando.insert("", "end", values=(proc.id, proc.TimeMax, proc.tt))
+            proc.p_id = proc_id
+            P_QUEUE.append(proc)
+    
     if not w_error:
         result = eval(proc.ope)
-        tree_terminados.insert("", "end", values=(proc.id, proc.ope, result, proc.num_lote))
+        tree_terminados.insert("", "end", values=(proc.id, proc.ope, result))
     else:    
-        tree_terminados.insert("", "end", values=(proc.id, proc.ope, "Error", proc.num_lote))
+        tree_terminados.insert("", "end", values=(proc.id, proc.ope, "Error"))
+
+
 
 def proceso_terminado(): #limpia la tabla de procesos en ejecucion
     lbl_id.config(text="ID: ")
@@ -194,7 +221,7 @@ def proceso_terminado(): #limpia la tabla de procesos en ejecucion
     lbl_tr.config(text="TR: 0")
         
 
-#GUI
+# /// INTERFAZ GRAFICA ///
 
 frame_left = tk.Frame(root)   #formulario
 frame_left.pack(side="left", fill="y", padx=10, pady=10)
@@ -260,11 +287,10 @@ lbl_tr.pack(anchor="w")
 frame_terminados = tk.LabelFrame(frame_tablas, text="Terminados")
 frame_terminados.pack(side="left", fill="both", expand=True, padx=10, pady=5)
 
-tree_terminados = ttk.Treeview(frame_terminados, columns=("id", "ope", "res", "nl"), show="headings")
+tree_terminados = ttk.Treeview(frame_terminados, columns=("id", "ope", "res"), show="headings")
 tree_terminados.heading("id", text="ID")
 tree_terminados.heading("ope", text="Ope")
 tree_terminados.heading("res", text="Res")
-tree_terminados.heading("nl", text="NL")
 tree_terminados.column("id", width=100, anchor="center")
 
 tree_terminados.pack(fill="both", expand=True)
@@ -281,7 +307,7 @@ tree_bloqueados.heading("id", text="ID")
 tree_bloqueados.heading("tb", text="TTB")
 
 tree_bloqueados.column("id", width=50, anchor="center")
-tree_bloqueados.column("tb", width=30, anchor="center")
+tree_bloqueados.column("tb", width=50, anchor="center")
 
 tree_bloqueados.pack(fill="both", expand=True)
 
@@ -310,7 +336,6 @@ tree_resultados.heading("t_respuesta", text="T-Respuesta")
 tree_resultados.heading("t_retorno", text="T-Retorno")
 tree_resultados.heading("t_servicio", text="T-Servicio")
 tree_resultados.heading("tme", text="TME")
-
 
 tree_resultados.pack(fill="both", expand=True)
 
