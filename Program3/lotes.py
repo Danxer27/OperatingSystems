@@ -251,8 +251,8 @@ def procesar():
         # ^^^^^^^ TERMINA DEL PROCESO ^^^^^^^
         proc.t_finalizacion = Contador
         proc.t_retorno = proc.t_finalizacion - proc.t_llegada
-        proc.t_espera = proc.t_retorno - proc.TimeMax
-        proc.t_respuesta = proc.t_comienzo - proc.t_llegada -1
+        proc.t_espera = proc.t_retorno - proc.tt - 1
+        proc.t_respuesta = proc.t_comienzo - proc.t_llegada
             
         if e_blocking:
             pass
