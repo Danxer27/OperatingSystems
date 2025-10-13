@@ -12,7 +12,7 @@ Procesos = []
 Contador = 0
 ids = []
 Num_Procesos = 0
-MAX_TME_TIME = 10
+MAX_TME_TIME = 20
  
 # GENERA DATOS PRIMERO LLAMANDO A CAPTURAR EL NUMERO DE PROCESO
 def generar_datos():
