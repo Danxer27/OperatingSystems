@@ -19,9 +19,10 @@ MAX_TME_TIME = 10
  
 # GENERA DATOS PRIMERO LLAMANDO A CAPTURAR EL NUMERO DE PROCESO
 def generar_datos():
+        global NUM_QUANTUM
         try: 
-            Num_Procesos = capturar_Num_Procesos()
             NUM_QUANTUM = capturar_num_quantum()
+            Num_Procesos = capturar_Num_Procesos()
             label_datos_save.config(text="Datos Generados Correctamente!", bg="LawnGreen")
         except ValueError as e:
             label_datos_save.config(text=str(e), background="red")
@@ -74,6 +75,7 @@ class Proc:
     p_id = ""
     tt = 0
     ttb = 0
+    ttq = 0
     Erroru = False #salida por tecla error
     t_comienzo = 0
     t_llegada = 0
@@ -204,7 +206,7 @@ def procesar():
         
         #  $$$$$$ CALCULAR TIEMPO RESTANTE Y CALCULAR SU TIEMPO DE QUANTUM
         
-        while i <= time_ejec: #///// PROCESA ACTUAL ////////// Ejecuta por segundo
+        while i < time_ejec: #///// PROCESA ACTUAL ////////// Ejecuta por segundo
             Contador += 1
             proc.en_ejecucion = True
             
@@ -242,7 +244,7 @@ def procesar():
                     NewProceso = Proc(False)
                     Procesos.append(NewProceso)
                     Procesos_Existentes.append(NewProceso)
-                    anadir_proceso_memoria(Procesos_QUEUE, bloqueados)
+                    #anadir_proceso_memoria(Procesos_QUEUE, bloqueados) // estaba dando errores xdxd
 
                 if tecla == 'b':
                     print("Programa en pausa...")
@@ -258,7 +260,7 @@ def procesar():
             # Tabla de ejecucion
             tabla_contador(proc, w_error, P_NULO, i)
             
-                #Bloqueados
+            # ///////////  Bloqueados
             labels_bloqueados = [lbl_bloq1, lbl_bloq2, lbl_bloq3, lbl_bloq4]
             qindex = 0
             for lbl in labels_bloqueados:
@@ -277,8 +279,8 @@ def procesar():
                         P_NULO = False
                     b_proc.ttb = 0
                     b_proc.bloqueado = False
-                    proc_id = tree_listos.insert("", "end", values=(b_proc.id, b_proc.TimeMax, b_proc.tt))
-                    b_proc.p_id = proc_id
+                    b_proc_id = tree_listos.insert("", "end", values=(b_proc.id, b_proc.TimeMax, b_proc.tt))
+                    b_proc.p_id = b_proc_id
                     Procesos_QUEUE.append(b_proc)
                 else:
                     nuevos_bloqueados.append(b_proc)
@@ -288,6 +290,12 @@ def procesar():
             lbl_procesos_restantes.config(text=f"Procesos restantes(en Nuevos): {len(Procesos)}")        
             #cambiando tiempo transcurrido interno
             proc.tt += 1
+            proc.ttq += 1
+            
+            if proc.ttq >= NUM_QUANTUM:
+                proc.ttq = 0
+                time_ejec = 0
+            
             i += 1
             proc.en_ejecucion = False
             root.update()
@@ -296,13 +304,19 @@ def procesar():
             
         # ^^^^^^^ TERMINA DEL PROCESO ^^^^^^^s
        
-       # $$$$$$ Poner de condicion de si solo termino uno de sus quantums o si ya termino el procesos completo
-        terminacion_de_proceso(proc, Terminados, e_blocking, w_error, P_NULO)
-
-         # añade nuevo proceso a la memoria
-        anadir_proceso_memoria(Procesos_QUEUE, bloqueados)
-                
-                
+        if proc.TimeMax - proc.tt > 0 and not e_blocking:
+            fin_quantum = True
+            proc_id = tree_listos.insert("", "end", values=(proc.id, proc.TimeMax, proc.tt))
+            proc.p_id = proc_id
+            Procesos_QUEUE.append(proc)
+        else: 
+            fin_quantum = False
+            
+        proc.ttq = 0
+    
+        terminacion_de_proceso(proc, Lista_terminados=Terminados, E_bloqueo_activado=e_blocking, Fin_QUANTUM=fin_quantum, W_error_act=w_error, Proceso_Nulo_Active=P_NULO)
+        anadir_proceso_memoria(Procesos_QUEUE, bloqueados) # añade nuevo proceso a la memoria
+            
     # ^^^^ FIN DE EJECUCION ^^^^
 
     print("Procesos terminado")
@@ -319,12 +333,6 @@ def anadir_proceso_memoria(Procesos_QUEUE, bloqueados):
             proc_new.en_memoria = True
             Procesos_QUEUE.append(proc_new)
 
-#def detectar_teclas(P_NULO, proc, bloqueados, Procesos_QUEUE, w_error, time_ejec, e_blocking):
-  
-
-            
-
-        
 
 def esperar_tecla():
      # Espera bloqueante pero sin congelar la GUI: presiona 'c' para continuar.
@@ -358,15 +366,15 @@ def tabla_contador(proc, w_error, P_NULO, i):
     print(f"Contando... {i}")
     
 
-def terminacion_de_proceso(proc, Lista_terminados, E_bloqueo_activado, W_error_act, Proceso_Nulo_Active):
+def terminacion_de_proceso(proc, Lista_terminados, E_bloqueo_activado, Fin_QUANTUM, W_error_act, Proceso_Nulo_Active):
     proc.t_finalizacion = Contador
     proc.t_retorno = proc.t_finalizacion - proc.t_llegada
     proc.t_espera = proc.t_retorno - proc.tt
     proc.t_respuesta = proc.t_comienzo - proc.t_llegada
     
         
-    if E_bloqueo_activado:
-        pass
+    if E_bloqueo_activado or Fin_QUANTUM:
+        pass #Si fue bloqueado o solo fue cambio de quantum no debe hacer nada con el proceso.
     elif not W_error_act and not Proceso_Nulo_Active:
         try:
             result = eval(proc.ope)
