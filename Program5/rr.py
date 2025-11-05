@@ -5,7 +5,7 @@ import random as rm
 import msvcrt
 
 root = tk.Tk()
-root.title("First Come, First Served")
+root.title("Algoritmo Round Robin - DJCE")
 root.geometry("1620x780")
 root.resizable(True, True)
 
@@ -15,7 +15,7 @@ Contador = 0
 ids = []
 Num_Procesos = 0
 NUM_QUANTUM = 0
-MAX_TME_TIME = 10
+MAX_TME_TIME = 20
  
 # GENERA DATOS PRIMERO LLAMANDO A CAPTURAR EL NUMERO DE PROCESO
 def generar_datos():
