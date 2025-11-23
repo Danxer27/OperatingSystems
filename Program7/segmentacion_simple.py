@@ -113,6 +113,7 @@ class Proc:
     fsize = 0
     dir_in = 0
     dir_fin = 0
+    color = None
     
     def __init__(self, nulo=False):
         if nulo:
@@ -130,7 +131,7 @@ class Proc:
         self.ope = self.generar_operacion()
         self.TimeMax = rm.randint(6,MAX_TME_TIME)
         self.size = rm.randint(6,MAX_SIZE)
-        self.fsize = self.size // 5
+        self.fsize = (self.size + 4) // 5
         self.string_proc()
         self.print_proc()
 
@@ -203,6 +204,9 @@ def procesar():
                     pass
             P_NULO = False
             #Cambiar colores de direccion en ejecucion
+            if proc.dir_in is None or proc.dir_fin is None:
+                # simplemente no lo proceses
+                continue
             for i in range(proc.dir_in, proc.dir_fin+1):
                 Celdas_numMarcos[i].config(bg="lawnGreen")
         else:
@@ -308,7 +312,13 @@ def procesar():
 
             bloqueados = nuevos_bloqueados
                     
-            lbl_procesos_restantes.config(text=f"Procesos restantes(en Nuevos): {len(Procesos)}")        
+            if len(Procesos) > 0:
+                prid = Procesos[0].id
+                prtam = Procesos[0].size
+            else:
+                prid = 0
+                prtam = 0
+            lbl_procesos_restantes.config(text=f"Procesos por entrar: {prid}: Tam: {prtam}")        
             #cambiando tiempo transcurrido interno
             proc.tt += 1
             proc.ttq += 1
@@ -355,36 +365,43 @@ def anadir_proceso_memoria(Mem_QUEUE):
                 proc_id = tree_listos.insert("", "end", values=(proc_new.id, proc_new.TimeMax, proc_new.tt, proc_new.size))
                 proc_new.p_id = proc_id
                 proc_new.en_memoria = True
-                
-                #parte vizual fisica
+                 
+                #parte visual fisica
                 icolor = rm.choice(Colores_mem)
                 l,r = disponibilidad(proc_new.fsize) #Consulta el sector disponible de frames para añadir el proceso
+                if l == -1:
+                    # por si algo raro: no hay espacio
+                    Procesos_after.append(proc_new)
+                    continue
                 proc_new.dir_in = l
                 proc_new.dir_fin = r
-                for i in range(l,r+1):
-                    ultimo = (i == r)
-                    Memoria[i][0] = True
+                proc_new.color = icolor
+                
+                remaining_cells = proc_new.size
+                for frame_idx in range(l, r + 1):
+                    Memoria[frame_idx][0] = True
+                    paint_count = min(5, remaining_cells)
+                    for pi in range(paint_count):
+                        try:
+                            Memoria[frame_idx][1][pi].config(bg=icolor)
+                        except Exception:
+                            pass
+                    remaining_cells -= paint_count
 
-                    if not ultimo:
-                        colorear = 5
-                    else:
-                        colorear = proc_new.size % 5 or 5
-                    for pi in range(colorear):
-                        Memoria[i][1][pi].config(bg=icolor)
-                                    
+                # finalmente, añade a la cola de listos
                 Mem_QUEUE.append(proc_new)
         else:
             Procesos_after.append(proc_new)
             
     Procesos = list(Procesos_after)
+    refrescar_visual_memoria()
             
 def cabe_en_memoria(proc):
     mi, mf = disponibilidad()
-    sector_disponible = mf - mi
-    if sector_disponible >= proc.fsize:
-        return True
-    else:
+    if mi == -1:
         return False
+    sector_disponible = mf - mi + 1
+    return sector_disponible >= proc.fsize
     
 def disponibilidad(necesario_disponible=0):
     """
@@ -393,42 +410,99 @@ def disponibilidad(necesario_disponible=0):
     Retorna la direccion inicial y final del sector disponible consultado
     """
     sector_disponible = 0
-    dir_inicial = 0
+    dir_inicial = None
 
     max_sector = 0
-    max_dir_inicial = 0
-    max_dir_final = 0
+    max_dir_inicial = -1
+    max_dir_final = -1
 
     for i in range(len(Memoria)):
         if not Memoria[i][0]:
-
             if sector_disponible == 0:
-                dir_inicial = i  # inicio correcto
-
+                dir_inicial = i
             sector_disponible += 1
 
             # FIRST-FIT (siguiente ajuste)
             if necesario_disponible > 0 and sector_disponible >= necesario_disponible:
-                return dir_inicial, i + 1
+                # devolver end como índice INCLUSIVE
+                return dir_inicial, i
 
             # SECTOR MÁS GRANDE
             if sector_disponible > max_sector:
                 max_sector = sector_disponible
                 max_dir_inicial = dir_inicial
-                max_dir_final = i + 1
-
+                max_dir_final = i
         else:
             sector_disponible = 0
-            dir_inicial = i + 1  # CORRECCIÓN IMPORTANTE
+            dir_inicial = None
 
-    return max_dir_inicial, max_dir_final
+    if max_sector > 0:
+        return max_dir_inicial, max_dir_final
+
+    return -1, -1
 
 def liberar_memoria(proc):
-    l,r = proc.dir_in, proc.dir_fin
-    for i in range(l,r):
+    l, r = proc.dir_in, proc.dir_fin
+    # protección
+    if l is None or r is None or l < 0 or r < 0:
+        return
+    for i in range(l, r + 1):
         Memoria[i][0] = False
         for pi in range(5):
-            Memoria[i][1][pi].config(bg="#f0f0f0")
+            try:
+                Memoria[i][1][pi].config(bg="#f0f0f0")
+            except Exception:
+                pass
+    # limpiar metadatos del proceso
+    proc.en_memoria = False
+    proc.dir_in = None
+    proc.dir_fin = None
+    proc.color = None
+
+    # repintar coherente desde la memoria lógica (opcional redundante, pero recomendable)
+    refrescar_visual_memoria()
+    
+def refrescar_visual_memoria():
+    """
+    Reconstuye la vista de memoria **solo** a partir de los datos lógicos:
+    - Limpia todo el grid
+    - Para cada proceso en Procesos_Existentes que tenga en_memoria True, pinta sus celdas usando proc.dir_in/dir_fin y proc.size
+    - Actualiza también el color del marco (Celdas_numMarcos)
+    """
+    # limpiar toda la visual (todos los frames y celdas)
+    for frame_idx in range(len(Memoria)):
+        # restablece label del marco
+        try:
+            Celdas_numMarcos[frame_idx].config(bg="#f0f0f0")
+        except Exception:
+            pass
+        # restablece celdas internas
+        for pi in range(5):
+            try:
+                Memoria[frame_idx][1][pi].config(bg="#f0f0f0")
+            except Exception:
+                pass
+
+    # pintar según los procesos cargados (la fuente de verdad)
+    for proc in Procesos_Existentes:
+        if not getattr(proc, "en_memoria", False):
+            continue
+        if proc.dir_in is None or proc.dir_fin is None:
+            continue
+        remaining = proc.size
+        for frame_idx in range(proc.dir_in, proc.dir_fin + 1):
+            paint_count = min(5, remaining)
+            for pi in range(paint_count):
+                try:
+                    # si el proceso tiene color lo usa, sino usa gris oscuro por defecto
+                    color = getattr(proc, "color", "#cccccc")
+                    Memoria[frame_idx][1][pi].config(bg=color)
+                except Exception:
+                    pass
+
+            remaining -= paint_count
+            if remaining <= 0:
+                break
 
 def esperar_tecla():
      # Espera bloqueante pero sin congelar la GUI: presiona 'c' para continuar.
@@ -471,7 +545,7 @@ def terminacion_de_proceso(proc, Lista_terminados, E_bloqueo_activado, Fin_QUANT
     proc.t_espera = proc.t_retorno - proc.tt
     proc.t_respuesta = proc.t_comienzo - proc.t_llegada
     
-    if E_bloqueo_activado or Fin_QUANTUM:
+    if E_bloqueo_activado or Fin_QUANTUM and not W_error_act:
         pass #Si fue bloqueado o solo fue cambio de quantum no debe hacer nada con el proceso.
     elif not W_error_act and not Proceso_Nulo_Active: #Si temrino naturalmente
         try:
@@ -490,9 +564,6 @@ def terminacion_de_proceso(proc, Lista_terminados, E_bloqueo_activado, Fin_QUANT
         tree_terminados.insert("", "end", values=(proc.id, proc.ope, "Error"))
         Lista_terminados.append(proc)
         liberar_memoria(proc)
-        
-    for i in range(proc.dir_in, proc.dir_fin+1):
-                Celdas_numMarcos[i].config(bg="#f0f0f0")
     
     
 def mostrar_tabla_constrol_de_procesos():
