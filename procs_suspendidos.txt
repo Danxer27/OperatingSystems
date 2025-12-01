@@ -1,0 +1,36 @@
+Proceso: 293
+	Ope: 883 % 205
+	TT: 5
+	Tmax: 7
+	Tamaño 26
+
+Proceso: 823
+	Ope: 43 % 828
+	TT: 1
+	Tmax: 8
+	Tamaño 18
+
+Proceso: 414
+	Ope: 477 * 231
+	TT: 7
+	Tmax: 7
+	Tamaño 17
+
+Proceso: 432
+	Ope: 616 / 192
+	TT: 7
+	Tmax: 10
+	Tamaño 20
+
+Proceso: 82
+	Ope: 850 % 340
+	TT: 7
+	Tmax: 10
+	Tamaño 16
+
+Proceso: 207
+	Ope: 445 + 272
+	TT: 7
+	Tmax: 7
+	Tamaño 8
+
