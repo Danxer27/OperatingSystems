@@ -19,7 +19,7 @@ Num_Procesos = 0
 labels_bloqueados = []
 Suspendidos = []
 NUM_QUANTUM = 0
-MAX_TME_TIME = 10
+MAX_TME_TIME = 20
 MAX_SIZE = 30
 
 
@@ -117,6 +117,7 @@ class Proc:
     dir_fin = 0
     color = None
     suspendido = False
+    respuesta_positiva = False
 
     def __init__(self, nulo=False):
         if nulo:
@@ -206,12 +207,7 @@ def procesar():
         if len(Mem_QUEUE) > 0:
             proc = Mem_QUEUE.pop(0)
             # Verificar si es el proceso nulo
-            if proc.id == 0:
-                # Es el nulo, usar el proceso nulo global
-                proc = proceso_nulo
-                P_NULO = True
-                print("Entrada Nulo")
-            else:
+            if proc.id != 0:
                 if proc.p_id:  # borrar solo si existe un item en el treeview
                     try:
                         tree_listos.delete(proc.p_id)
@@ -222,9 +218,7 @@ def procesar():
                 if proc.dir_in is None or proc.dir_fin is None:
                     # simplemente no lo proceses
                     continue
-                for i in range(proc.dir_in, proc.dir_fin+1):
-                    Celdas_numMarcos[i].config(bg="lawnGreen")
-
+                pintar_marcos_en_ejecucion(proc)
         else:
             proc = proceso_nulo
             P_NULO = True
@@ -254,6 +248,7 @@ def procesar():
                 Contador += 1
             proc.en_ejecucion = True
             suspension_activated = False
+            proc.respuesta_positiva = True #El proceso toca memoria para confirmar respuesta
             
             #ESTRUCTURA DE KHBIT:
             if msvcrt.kbhit():  # detecta si hay una tecla presionada
@@ -278,6 +273,8 @@ def procesar():
                     if not P_NULO:
                         w_error = True
                         time_ejec = 0 #establece el tiempo restante en 0 cuando se da error para que pase directo a terminados, estaba en 1
+                        anadir_proceso_memoria(Mem_QUEUE)
+                        pintar_marcos_en_ejecucion(proc)
 
                 if tecla == 'e':
                     if not P_NULO:
@@ -295,6 +292,7 @@ def procesar():
                     Procesos.append(NewProceso)
                     Procesos_Existentes.append(NewProceso)
                     anadir_proceso_memoria(Mem_QUEUE)
+                    pintar_marcos_en_ejecucion(proc)
 
                 if tecla == 'b':
                     print("Programa en pausa...")
@@ -312,6 +310,8 @@ def procesar():
                 if tecla == 'r':
                     regresar_suspendido()
                     anadir_proceso_memoria(Mem_QUEUE)
+                    if not P_NULO:
+                        pintar_marcos_en_ejecucion(proc)
 
                 # ^^^^^^ fin funciones de teclas
 
@@ -319,11 +319,7 @@ def procesar():
             
             # Tabla de ejecucion
             tabla_contador(proc, w_error, P_NULO, i)
-            
-            # Ejecucion en memoria:
-            # for i in range(proc.dir_in, proc.dir_fin):
-            #     Celdas_numMarcos[i].config(bg="lawnGreen")
-            
+      
             # ///////////  Bloqueados]
             qindex = 0
             for lbl in labels_bloqueados:
@@ -335,6 +331,8 @@ def procesar():
             
             nuevos_bloqueados = []
             for b_proc in bloqueados:
+                for bc in range(b_proc.dir_in, b_proc.dir_fin+1):
+                    Celdas_numMarcos[bc].config(bg="firebrick1")
                 if local_counter % 5 == 0 and local_counter > 0:
                     b_proc.ttb += 1
                 if b_proc.ttb > 8:   # ya cumplió, pasa a listos
@@ -343,27 +341,26 @@ def procesar():
                         P_NULO = False
                     b_proc.ttb = 0
                     b_proc.bloqueado = False
-                    b_proc.suspendido = True
                     # Evitar insertar procesos nulos en la tabla
                     if b_proc.id != 0:
                         b_proc_id = tree_listos.insert("", "end", values=(b_proc.id, b_proc.TimeMax, b_proc.tt, b_proc.size))
                         b_proc.p_id = b_proc_id
-                    Mem_QUEUE.append(b_proc)
-                    for i in range(b_proc.dir_in, b_proc.dir_fin+1):
-                        Celdas_numMarcos[i].config(bg="firebrik1")
+                        Mem_QUEUE.append(b_proc)
+                    refrescar_visual_memoria() #Cuando un proceso termina debe volver a refrescar la vizual
+                    pintar_marcos_en_ejecucion(proc)
                 elif suspension_activated:
                     suspension_activated = False
-                    b_proc.ttb = 0
                     b_proc.bloqueado = False
+                    b_proc.suspendido = True
+                    b_proc.ttb = 0
                     liberar_memoria(b_proc)
                     Suspendidos.append(b_proc)
                     modificar_suspendidos()
+                    refrescar_visual_memoria() #tambien se debe refrescar cuando este sea suspendido y salga de bloqueados
+                    pintar_marcos_en_ejecucion(proc)
                 else:
                     nuevos_bloqueados.append(b_proc)
                 
-                for i in range(b_proc.dir_in, b_proc.dir_fin+1):
-                    Celdas_numMarcos[i].config(bg="firebrick1")
-
             bloqueados = nuevos_bloqueados
                     
             if len(Procesos) > 0:
@@ -398,7 +395,7 @@ def procesar():
             if not P_NULO:
                 proc_id = tree_listos.insert("", "end", values=(proc.id, proc.TimeMax, proc.tt, proc.size))
                 proc.p_id = proc_id
-            Mem_QUEUE.append(proc)
+                Mem_QUEUE.append(proc)
         else: 
             fin_quantum = False
             
@@ -414,13 +411,20 @@ def procesar():
 
 # ^^^^ FIN funcion principal ^^^^
 
+def pintar_marcos_en_ejecucion(proc):
+    if proc.dir_in and proc.dir_fin:
+        for cc in range(proc.dir_in, proc.dir_fin+1):
+            Celdas_numMarcos[cc].config(bg="lawnGreen")
+
 def anadir_proceso_memoria(Mem_QUEUE):
     global Procesos
     Procesos_after = []
     for proc_new in Procesos:
         if(cabe_en_memoria(proc_new)):
                 #parte logica
-                proc_new.t_llegada = Contador
+                # Solo asignar t_llegada la primera vez que entra a memoria
+                if proc_new.t_llegada == 0:
+                    proc_new.t_llegada = Contador
                 # No mostrar procesos nulos en el árbol de listos
                 if proc_new.id != 0:
                     proc_id = tree_listos.insert("", "end", values=(proc_new.id, proc_new.TimeMax, proc_new.tt, proc_new.size))
@@ -577,6 +581,7 @@ def modificar_suspendidos():
 def regresar_suspendido():
     if len(Suspendidos) > 0:
         rproc = Suspendidos.pop(0)
+        rproc.suspendido = False
         Procesos.append(rproc)
         modificar_suspendidos()
     else:
@@ -620,8 +625,8 @@ def tabla_contador(proc, w_error, P_NULO, i):
 def terminacion_de_proceso(proc, Lista_terminados, E_bloqueo_activado, Fin_QUANTUM, W_error_act, Proceso_Nulo_Active):
     proc.t_finalizacion = Contador
     proc.t_retorno = proc.t_finalizacion - proc.t_llegada
-    proc.t_espera = proc.t_retorno - proc.tt
-    proc.t_respuesta = proc.t_comienzo - proc.t_llegada
+    proc.t_espera = max(0, proc.t_retorno - proc.tt)
+    proc.t_respuesta = max(0, proc.t_comienzo - proc.t_llegada)
     
     if E_bloqueo_activado or Fin_QUANTUM and not W_error_act:
         pass #Si fue bloqueado o solo fue cambio de quantum no debe hacer nada con el proceso.
@@ -636,7 +641,7 @@ def terminacion_de_proceso(proc, Lista_terminados, E_bloqueo_activado, Fin_QUANT
             
         except Exception:
             result = "Error eval"
-    elif Proceso_Nulo_Active:
+    elif Proceso_Nulo_Active or proc.id == 0:
         pass
     else: # Si fue sacado por error
         proc.resultado = "Error"
@@ -651,27 +656,26 @@ def mostrar_tabla_constrol_de_procesos():
             if proc.Erroru:
                 tree_resultados.insert("", "end", values=(proc.id, "Error" ,"X", "Error", proc.t_llegada, proc.t_finalizacion, proc.t_espera, proc.t_respuesta, proc.t_retorno, proc.tt, proc.TimeMax, proc.size))
             elif not proc.terminado:
-                if proc.en_memoria: # en Listo
+                if proc.en_memoria or proc.suspendido: # en Listo
                     llegada = proc.t_llegada 
                     temp_espera = Contador - llegada - proc.tt
                     if proc.bloqueado:
-                        status = "Bloqueado" 
+                        status = "Bloqueado"
+                    if proc.suspendido:
+                        status = "Suspendido"
                     else:
                         if proc.en_ejecucion:
                             status = "Ejecutando"
                         else:
                             status = "Listo"
-                    if proc.tt > 0:
+                    if proc.respuesta_positiva:
                         temp_respuesta = proc.t_comienzo - proc.t_llegada
                     else: 
                         temp_respuesta = "--"
                
                 else:  #no en memoria
-                    if proc.suspendido:
-                        status = "Suspendido"
-                    else: #nuevo (no en memoria)
-                        temp_espera = temp_respuesta = llegada = "--"
-                        status = "Nuevo"
+                    temp_espera = temp_respuesta = llegada = "--"
+                    status = "Nuevo"
                 
                 tree_resultados.insert("", "end", values=(proc.id, status, proc.ope, "X", llegada, "--", temp_espera, temp_respuesta, "--", proc.tt, proc.TimeMax, proc.size))
             else: #Terminado normalmemnte
