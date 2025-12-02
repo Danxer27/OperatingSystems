@@ -128,6 +128,8 @@ class Proc:
         self.id = 0
         self.ope = "Nulo"
         self.TimeMax = 10000
+        self.dir_in = None
+        self.dir_fin = None
 
     def generar_campos(self):
         self.id = self.generar_id()
@@ -203,18 +205,26 @@ def procesar():
         '''
         if len(Mem_QUEUE) > 0:
             proc = Mem_QUEUE.pop(0)
-            if proc.p_id:  # borrar solo si existe un item en el treeview
-                try:
-                    tree_listos.delete(proc.p_id)
-                except Exception:
-                    pass
-            P_NULO = False
-            #Cambiar colores de direccion en ejecucion
-            if proc.dir_in is None or proc.dir_fin is None:
-                # simplemente no lo proceses
-                continue
-            for i in range(proc.dir_in, proc.dir_fin+1):
-                Celdas_numMarcos[i].config(bg="lawnGreen")
+            # Verificar si es el proceso nulo
+            if proc.id == 0:
+                # Es el nulo, usar el proceso nulo global
+                proc = proceso_nulo
+                P_NULO = True
+                print("Entrada Nulo")
+            else:
+                if proc.p_id:  # borrar solo si existe un item en el treeview
+                    try:
+                        tree_listos.delete(proc.p_id)
+                    except Exception:
+                        pass
+                P_NULO = False
+                #Cambiar colores de direccion en ejecucion
+                if proc.dir_in is None or proc.dir_fin is None:
+                    # simplemente no lo proceses
+                    continue
+                for i in range(proc.dir_in, proc.dir_fin+1):
+                    Celdas_numMarcos[i].config(bg="lawnGreen")
+
         else:
             proc = proceso_nulo
             P_NULO = True
@@ -225,7 +235,7 @@ def procesar():
             proc.first_time = False
     
         if P_NULO:
-            time_ejec = 15
+            time_ejec = 1000
         else:
             time_ejec = proc.TimeMax - proc.tt
         
@@ -265,8 +275,9 @@ def procesar():
                                 lbl_status.config(text="Programa Reaunudado!", bg="LawnGreen")
 
                 if tecla == 'w':
-                    w_error = True
-                    time_ejec = 0 #establece el tiempo restante en 0 cuando se da error para que pase directo a terminados, estaba en 1
+                    if not P_NULO:
+                        w_error = True
+                        time_ejec = 0 #establece el tiempo restante en 0 cuando se da error para que pase directo a terminados, estaba en 1
 
                 if tecla == 'e':
                     if not P_NULO:
@@ -333,9 +344,13 @@ def procesar():
                     b_proc.ttb = 0
                     b_proc.bloqueado = False
                     b_proc.suspendido = True
-                    b_proc_id = tree_listos.insert("", "end", values=(b_proc.id, b_proc.TimeMax, b_proc.tt, b_proc.size))
-                    b_proc.p_id = b_proc_id
+                    # Evitar insertar procesos nulos en la tabla
+                    if b_proc.id != 0:
+                        b_proc_id = tree_listos.insert("", "end", values=(b_proc.id, b_proc.TimeMax, b_proc.tt, b_proc.size))
+                        b_proc.p_id = b_proc_id
                     Mem_QUEUE.append(b_proc)
+                    for i in range(b_proc.dir_in, b_proc.dir_fin+1):
+                        Celdas_numMarcos[i].config(bg="firebrik1")
                 elif suspension_activated:
                     suspension_activated = False
                     b_proc.ttb = 0
@@ -345,6 +360,9 @@ def procesar():
                     modificar_suspendidos()
                 else:
                     nuevos_bloqueados.append(b_proc)
+                
+                for i in range(b_proc.dir_in, b_proc.dir_fin+1):
+                    Celdas_numMarcos[i].config(bg="firebrick1")
 
             bloqueados = nuevos_bloqueados
                     
@@ -376,8 +394,10 @@ def procesar():
        
         if proc.TimeMax - proc.tt > 0 and not e_blocking:
             fin_quantum = True
-            proc_id = tree_listos.insert("", "end", values=(proc.id, proc.TimeMax, proc.tt, proc.size))
-            proc.p_id = proc_id
+            # No agregar el proceso nulo a la cola visualmente
+            if not P_NULO:
+                proc_id = tree_listos.insert("", "end", values=(proc.id, proc.TimeMax, proc.tt, proc.size))
+                proc.p_id = proc_id
             Mem_QUEUE.append(proc)
         else: 
             fin_quantum = False
@@ -401,8 +421,12 @@ def anadir_proceso_memoria(Mem_QUEUE):
         if(cabe_en_memoria(proc_new)):
                 #parte logica
                 proc_new.t_llegada = Contador
-                proc_id = tree_listos.insert("", "end", values=(proc_new.id, proc_new.TimeMax, proc_new.tt, proc_new.size))
-                proc_new.p_id = proc_id
+                # No mostrar procesos nulos en el árbol de listos
+                if proc_new.id != 0:
+                    proc_id = tree_listos.insert("", "end", values=(proc_new.id, proc_new.TimeMax, proc_new.tt, proc_new.size))
+                    proc_new.p_id = proc_id
+                else:
+                    proc_new.p_id = None
                 proc_new.en_memoria = True
                  
                 #parte visual fisica
@@ -544,10 +568,10 @@ def refrescar_visual_memoria():
                 break
 
 def modificar_suspendidos():
-    with open('Program8/Memoria_susprocs.txt', 'w') as archivo:
+    with open('Memoria_susprocs.txt', 'w') as archivo:
         archivo.write("<Memoria Secundaria>")
         for sproc in Suspendidos:
-            archivo.write(f"Proceso: {sproc.id}\n\tOpe: {sproc.ope}\n\tTT: {sproc.tt}\n\tTmax: {sproc.TimeMax}\n\tTamaño {sproc.size}\n\n") 
+            archivo.write(f"\nProceso: {sproc.id}\n\tOpe: {sproc.ope}\n\tTT: {sproc.tt}\n\tTmax: {sproc.TimeMax}\n\tTamanio {sproc.size}\n") 
         archivo.close()
 
 def regresar_suspendido():
@@ -612,6 +636,8 @@ def terminacion_de_proceso(proc, Lista_terminados, E_bloqueo_activado, Fin_QUANT
             
         except Exception:
             result = "Error eval"
+    elif Proceso_Nulo_Active:
+        pass
     else: # Si fue sacado por error
         proc.resultado = "Error"
         proc.Erroru = True
